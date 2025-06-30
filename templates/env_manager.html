@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Variables Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #111827; color: #d1d5db; }
+        .card { background-color: #1f2937; border: 1px solid #374151; }
+        .form-input, .form-select, .form-textarea { background-color: #374151; border: 1px solid #4b5563; color: #d1d5db; }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; transition: background-color 0.2s; }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover { background-color: #4338ca; }
+        .btn-secondary { background-color: #374151; color: white; border: 1px solid #4b5563; }
+        .btn-secondary:hover { background-color: #4b5563; }
+        .btn-success { background-color: #059669; color: white; }
+        .btn-success:hover { background-color: #047857; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .btn-warning { background-color: #d97706; color: white; }
+        .btn-warning:hover { background-color: #b45309; }
+        .alert { padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; }
+        .alert-success { background-color: #065f46; border: 1px solid #059669; }
+        .alert-error { background-color: #7f1d1d; border: 1px solid #dc2626; }
+        .alert-warning { background-color: #78350f; border: 1px solid #d97706; }
+        .env-var-item { background-color: #374151; border: 1px solid #4b5563; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; }
+        .sensitive { background-color: #7f1d1d; }
+        .api-key-notice { background: linear-gradient(135deg, #7c3aed, #3b82f6); border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body class="font-sans">
+    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">Environment Variables Manager 🔧</h1>
+            <p class="text-lg text-gray-400">Kelola konfigurasi aplikasi dengan mudah</p>
+            <div class="mt-4">
+                <a href="/" class="btn btn-secondary">← Kembali ke Generator</a>
+            </div>
+        </header>
+
+        <!-- API Key Notice -->
+        <div class="api-key-notice">
+            <div class="flex items-start gap-4">
+                <span class="text-3xl">🔑</span>
+                <div>
+                    <h3 class="text-xl font-bold text-white mb-2">Setup API Key Gemini</h3>
+                    <p class="text-gray-200 mb-3">
+                        Untuk menggunakan AI Generator, Anda perlu API key dari Google AI Studio:
+                    </p>
+                    <ol class="text-sm text-gray-200 list-decimal list-inside space-y-1 mb-4">
+                        <li>Kunjungi <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-300 hover:text-blue-200 underline">Google AI Studio</a></li>
+                        <li>Login dengan akun Google Anda</li>
+                        <li>Klik "Create API Key" dan pilih project</li>
+                        <li>Copy API key yang dihasilkan</li>
+                        <li>Paste di form "GEMINI_API_KEY" di bawah</li>
+                    </ol>
+                    <div class="flex gap-2">
+                        <button onclick="setupTemplate('GEMINI_API_KEY', '')" class="btn btn-primary btn-sm">🚀 Setup Sekarang</button>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-secondary btn-sm">🔗 Buka AI Studio</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Area -->
+        <div id="alert-area"></div>
+
+        <!-- Validation Status -->
+        <div class="card p-6 rounded-lg mb-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Status Validasi</h2>
+            <div id="validation-status">
+                <div class="flex items-center justify-center">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                    <span class="ml-2">Memeriksa...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add/Edit Form -->
+        <div class="card p-6 rounded-lg mb-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Tambah/Edit Environment Variable</h2>
+            <form id="env-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="env-key" class="block mb-2 text-sm font-medium">Key</label>
+                        <input type="text" id="env-key" class="form-input w-full rounded-lg" placeholder="GEMINI_API_KEY" required>
+                        <p class="text-xs text-gray-400 mt-1">Nama environment variable</p>
+                    </div>
+                    <div>
+                        <label for="env-value" class="block mb-2 text-sm font-medium">Value</label>
+                        <input type="text" id="env-value" class="form-input w-full rounded-lg" placeholder="your_api_key_here" required>
+                        <p class="text-xs text-gray-400 mt-1">Nilai untuk environment variable</p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary">💾 Simpan</button>
+                    <button type="button" id="clear-form-btn" class="btn btn-secondary">🗑️ Clear</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Environment Variables List -->
+        <div class="card p-6 rounded-lg mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-white">Environment Variables</h2>
+                <div class="flex gap-2">
+                    <button id="refresh-btn" class="btn btn-secondary">🔄 Refresh</button>
+                    <button id="backup-btn" class="btn btn-warning">💾 Backup</button>
+                </div>
+            </div>
+            <div id="env-vars-list">
+                <div class="flex items-center justify-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                    <span class="ml-2">Memuat...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Setup Templates -->
+        <div class="card p-6 rounded-lg">
+            <h2 class="text-xl font-semibold text-white mb-4">Template Cepat</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">🤖 Gemini AI Setup</h3>
+                    <p class="text-sm text-gray-300 mb-3">Setup API key untuk Google Gemini AI</p>
+                    <button class="btn btn-primary btn-sm" onclick="setupTemplate('GEMINI_API_KEY', '')">Setup Gemini</button>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">🔐 Flask Secret</h3>
+                    <p class="text-sm text-gray-300 mb-3">Generate random secret key untuk Flask</p>
+                    <button class="btn btn-primary btn-sm" onclick="generateSecretKey()">Generate Secret</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const envForm = document.getElementById('env-form');
+        const envKeyInput = document.getElementById('env-key');
+        const envValueInput = document.getElementById('env-value');
+        const clearFormBtn = document.getElementById('clear-form-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const backupBtn = document.getElementById('backup-btn');
+        const alertArea = document.getElementById('alert-area');
+        const validationStatus = document.getElementById('validation-status');
+        const envVarsList = document.getElementById('env-vars-list');
+
+        let currentEditingKey = null;
+
+        // Utility Functions
+        function showAlert(message, type = 'success') {
+            const alertClass = type === 'success' ? 'alert-success' : 
+                             type === 'error' ? 'alert-error' : 'alert-warning';
+            
+            const alertHtml = `
+                <div class="alert ${alertClass}">
+                    <div class="flex justify-between items-center">
+                        <span>${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-300">×</button>
+                    </div>
+                </div>
+            `;
+            
+            alertArea.insertAdjacentHTML('beforeend', alertHtml);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                const alerts = alertArea.querySelectorAll('.alert');
+                if (alerts.length > 0) {
+                    alerts[0].remove();
+                }
+            }, 5000);
+        }
+
+        function clearForm() {
+            envKeyInput.value = '';
+            envValueInput.value = '';
+            currentEditingKey = null;
+            envForm.querySelector('button[type="submit"]').textContent = '💾 Simpan';
+        }
+
+        // API Functions
+        async function loadEnvVars() {
+            try {
+                const response = await fetch('/env/vars');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEnvVars(data.env_vars);
+                } else {
+                    showAlert('Gagal memuat environment variables: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function validateEnvVars() {
+            try {
+                const response = await fetch('/env/validate');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayValidationStatus(data.valid, data.issues);
+                } else {
+                    showAlert('Gagal validasi: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error validasi: ' + error.message, 'error');
+            }
+        }
+
+        async function saveEnvVar(key, value) {
+            try {
+                const response = await fetch('/env/vars', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ key, value })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    clearForm();
+                    loadEnvVars();
+                    validateEnvVars();
+                } else {
+                    showAlert('Gagal menyimpan: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteEnvVar(key) {
+            if (!confirm(`Apakah Anda yakin ingin menghapus '${key}'?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/env/vars/${key}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    loadEnvVars();
+                    validateEnvVars();
+                } else {
+                    showAlert('Gagal menghapus: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function backupEnvFile() {
+            try {
+                const response = await fetch('/env/backup', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                } else {
+                    showAlert('Gagal backup: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error backup: ' + error.message, 'error');
+            }
+        }
+
+        // Display Functions
+        function displayValidationStatus(isValid, issues) {
+            let statusHtml = '';
+            
+            if (isValid) {
+                statusHtml = `
+                    <div class="flex items-center text-green-400">
+                        <span class="text-2xl mr-2">✅</span>
+                        <div>
+                            <div class="font-semibold">Konfigurasi Valid</div>
+                            <div class="text-sm">Semua environment variables sudah diset dengan benar.</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const issuesList = Object.entries(issues).map(([key, message]) => 
+                    `<li><strong>${key}:</strong> ${message}</li>`
+                ).join('');
+                
+                statusHtml = `
+                    <div class="flex items-start text-red-400">
+                        <span class="text-2xl mr-2">❌</span>
+                        <div>
+                            <div class="font-semibold">Konfigurasi Tidak Lengkap</div>
+                            <div class="text-sm mb-2">Beberapa environment variables perlu diset:</div>
+                            <ul class="text-sm list-disc list-inside">${issuesList}</ul>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            validationStatus.innerHTML = statusHtml;
+        }
+
+        function displayEnvVars(envVars) {
+            if (Object.keys(envVars).length === 0) {
+                envVarsList.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <span class="text-4xl">📝</span>
+                        <p class="mt-2">Belum ada environment variables</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const sensitiveKeys = ['SECRET_KEY', 'GEMINI_API_KEY', 'API_KEY'];
+            
+            let html = '';
+            Object.entries(envVars).forEach(([key, value]) => {
+                const isSensitive = sensitiveKeys.some(sk => key.includes(sk));
+                const itemClass = isSensitive ? 'env-var-item sensitive' : 'env-var-item';
+                
+                html += `
+                    <div class="${itemClass}">
+                        <div class="flex justify-between items-center">
+                            <div class="flex-1">
+                                <div class="flex items-center">
+                                    <span class="font-mono font-semibold text-white">${key}</span>
+                                    ${isSensitive ? '<span class="ml-2 text-xs bg-red-600 px-2 py-1 rounded">SENSITIVE</span>' : ''}
+                                </div>
+                                <div class="text-sm text-gray-300 mt-1 font-mono break-all">${value || '<em>empty</em>'}</div>
+                            </div>
+                            <div class="flex gap-2 ml-4">
+                                <button onclick="editEnvVar('${key}', '${value}')" class="btn btn-secondary btn-sm">✎</button>
+                                <button onclick="deleteEnvVar('${key}')" class="btn btn-danger btn-sm">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            envVarsList.innerHTML = html;
+        }
+
+        // Global Functions (for onclick handlers)
+        window.editEnvVar = function(key, value) {
+            // Unmask value for editing
+            if (value.includes('...')) {
+                // For masked values, we need to fetch the real value
+                fetch(`/env/vars/${key}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            envKeyInput.value = key;
+                            envValueInput.value = data.value;
+                            currentEditingKey = key;
+                            envForm.querySelector('button[type="submit"]').textContent = '✏️ Update';
+                            envKeyInput.focus();
+                        }
+                    });
+            } else {
+                envKeyInput.value = key;
+                envValueInput.value = value;
+                currentEditingKey = key;
+                envForm.querySelector('button[type="submit"]').textContent = '✏️ Update';
+                envKeyInput.focus();
+            }
+        };
+
+        window.deleteEnvVar = deleteEnvVar;
+
+        window.setupTemplate = function(key, defaultValue) {
+            envKeyInput.value = key;
+            envValueInput.value = defaultValue;
+            envValueInput.focus();
+            if (defaultValue === '') {
+                envValueInput.select();
+            }
+        };
+
+        window.generateSecretKey = function() {
+            // Generate a random secret key
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+            let result = '';
+            for (let i = 0; i < 32; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            
+            envKeyInput.value = 'SECRET_KEY';
+            envValueInput.value = result;
+            showAlert('Secret key berhasil digenerate! Klik Simpan untuk menyimpannya.', 'success');
+        };
+
+        // Event Listeners
+        envForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const key = envKeyInput.value.trim();
+            const value = envValueInput.value.trim();
+            
+            if (!key || !value) {
+                showAlert('Key dan Value tidak boleh kosong!', 'error');
+                return;
+            }
+            
+            saveEnvVar(key, value);
+        });
+
+        clearFormBtn.addEventListener('click', clearForm);
+        refreshBtn.addEventListener('click', function() {
+            loadEnvVars();
+            validateEnvVars();
+        });
+        backupBtn.addEventListener('click', backupEnvFile);
+
+        // Initial Load
+        loadEnvVars();
+        validateEnvVars();
+    });
+    </script>
+</body>
+</html>

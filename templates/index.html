@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Generator AI - Queue System Enhanced</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #111827; color: #d1d5db; }
+        .card { background-color: #1f2937; border: 1px solid #374151; }
+        .form-input, .form-select, .form-checkbox, .form-file { background-color: #374151; border: 1px solid #4b5563; color: #d1d5db; }
+        .form-file::file-selector-button { background-color: #4f46e5; color: white; border: none; padding: 0.5rem 1rem; margin-right: 1rem; cursor: pointer; }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; transition: background-color 0.2s; }
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover { background-color: #4338ca; }
+        .btn-primary:disabled { background-color: #374151; cursor: not-allowed; }
+        .btn-secondary { background-color: #374151; color: white; border: 1px solid #4b5563; }
+        .btn-secondary:hover { background-color: #4b5563; }
+        .btn-danger { background-color: #dc2626; color: white; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .btn-success { background-color: #059669; color: white; }
+        .btn-success:hover { background-color: #047857; }
+        .btn-warning { background-color: #d97706; color: white; }
+        .btn-warning:hover { background-color: #b45309; }
+        .btn-info { background-color: #0891b2; color: white; }
+        .btn-info:hover { background-color: #0e7490; }
+        .loader { border-top-color: #4f46e5; }
+        .saved-indicator { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            background-color: #059669; 
+            color: white; 
+            padding: 0.5rem 1rem; 
+            border-radius: 0.5rem; 
+            opacity: 0; 
+            transition: opacity 0.3s; 
+            z-index: 1000;
+        }
+        .saved-indicator.show { opacity: 1; }
+        
+        /* Drag & Drop Styles */
+        .drag-drop-area {
+            border: 2px dashed #4b5563;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background-color: #374151;
+            cursor: pointer;
+        }
+        .drag-drop-area.drag-over {
+            border-color: #4f46e5;
+            background-color: #4338ca;
+            transform: scale(1.02);
+        }
+        .drag-drop-area:hover {
+            border-color: #6b7280;
+            background-color: #4b5563;
+        }
+        .file-info {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+        .moviepy-badge {
+            background: linear-gradient(135deg, #10b981, #3b82f6);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .queue-badge {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .gemini-status {
+            background: linear-gradient(135deg, #7c3aed, #3b82f6);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .gemini-status.error {
+            background: linear-gradient(135deg, #dc2626, #f59e0b);
+        }
+        .api-key-setup {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+        .queue-info {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    <!-- Indikator Tersimpan -->
+    <div id="saved-indicator" class="saved-indicator">
+        ✓ Pengaturan tersimpan
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">Video Generator AI 🎥✨</h1>
+            <p class="text-lg text-gray-400">Powered by <span class="moviepy-badge">MoviePy 1.0.3</span> + <span class="queue-badge">Queue System</span></p>
+            
+            <!-- Queue System Info -->
+            <div class="queue-info mt-4">
+                <div class="flex items-start gap-4">
+                    <span class="text-3xl">🎯</span>
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-2">Smart Queue System</h3>
+                        <p class="text-gray-200 mb-2">
+                            Sistem antrian cerdas untuk menghindari rate limiting dan token limits:
+                        </p>
+                        <ul class="text-sm text-gray-200 list-disc list-inside space-y-1">
+                            <li>Generate 1 prompt → Download 1 gambar → Lanjut ke berikutnya</li>
+                            <li>Delay otomatis antar request untuk stabilitas</li>
+                            <li>Progress tracking real-time</li>
+                            <li>Fallback system jika Gemini API tidak tersedia</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Gemini API Status -->
+            <div class="mt-4 flex justify-center">
+                <div id="gemini-status" class="gemini-status">
+                    🤖 Checking Gemini API...
+                </div>
+            </div>
+            
+            <div class="mt-4 flex justify-center gap-4 flex-wrap">
+                <button id="setup-api-btn" class="btn btn-primary">🔑 Setup API Key</button>
+                <button id="test-gemini-btn" class="btn btn-info">🧪 Test Gemini API</button>
+                <button id="save-settings-btn" class="btn btn-success">💾 Simpan Pengaturan</button>
+                <button id="load-settings-btn" class="btn btn-secondary">📂 Muat Pengaturan</button>
+                <button id="reset-settings-btn" class="btn btn-danger">🔄 Reset Default</button>
+                <a href="/env-manager" class="btn btn-warning">🔧 Environment Manager</a>
+                <a href="/file-manager" class="btn btn-info">📁 File Manager</a>
+            </div>
+        </header>
+
+        <!-- API Key Setup Modal -->
+        <div id="api-key-modal" class="modal">
+            <div class="modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold text-white">🔑 Setup Gemini API Key</h3>
+                    <button id="close-modal-btn" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+                
+                <div class="api-key-setup">
+                    <div class="flex items-start gap-4">
+                        <span class="text-3xl">🤖</span>
+                        <div>
+                            <h4 class="text-lg font-bold text-white mb-2">Cara Mendapatkan API Key Gemini</h4>
+                            <ol class="text-sm text-gray-200 list-decimal list-inside space-y-1 mb-4">
+                                <li>Kunjungi <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-300 hover:text-blue-200 underline">Google AI Studio</a></li>
+                                <li>Login dengan akun Google Anda</li>
+                                <li>Klik "Create API Key" dan pilih project</li>
+                                <li>Copy API key yang dihasilkan</li>
+                                <li>Paste di form di bawah ini</li>
+                            </ol>
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="btn btn-secondary btn-sm">🔗 Buka AI Studio</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="api-key-input" class="block mb-2 text-sm font-medium text-white">Gemini API Key</label>
+                    <input type="text" id="api-key-input" class="form-input w-full rounded-lg" placeholder="Paste your Gemini API key here..." required>
+                    <p class="text-xs text-gray-400 mt-1">API key akan disimpan secara lokal di file data/api_keys.txt</p>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button id="save-api-key-btn" class="btn btn-primary">💾 Simpan & Test</button>
+                    <button id="cancel-api-key-btn" class="btn btn-secondary">Batal</button>
+                </div>
+                
+                <div id="api-key-result" class="mt-4 hidden">
+                    <!-- Result will be shown here -->
+                </div>
+            </div>
+        </div>
+
+        <form id="video-form" class="space-y-6">
+            <!-- Bagian 1: Input Utama dengan Drag & Drop -->
+            <fieldset class="card p-6 rounded-lg">
+                <legend class="text-xl font-semibold text-white px-2">1. Input Utama</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <!-- Narration File Upload -->
+                    <div>
+                        <label class="block mb-2 text-sm font-medium">File Narasi (.txt)</label>
+                        <div class="drag-drop-area" id="narration-drop-area">
+                            <div class="drag-drop-content">
+                                <span class="text-4xl">📄</span>
+                                <p class="mt-2 text-sm">Drag & drop file .txt di sini atau klik untuk pilih</p>
+                                <p class="text-xs text-gray-400 mt-1">Tanpa batasan ukuran file</p>
+                            </div>
+                            <input type="file" id="narration_file" name="narration_file" class="hidden" accept=".txt" required>
+                        </div>
+                        <div id="narration-file-info" class="file-info hidden">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-semibold text-white" id="narration-filename"></div>
+                                    <div class="text-sm text-gray-400" id="narration-filesize"></div>
+                                </div>
+                                <button type="button" id="remove-narration" class="text-red-400 hover:text-red-300">✕</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio File Upload -->
+                    <div>
+                        <label class="block mb-2 text-sm font-medium">File Audio (Durasi)</label>
+                        <div class="drag-drop-area" id="audio-drop-area">
+                            <div class="drag-drop-content">
+                                <span class="text-4xl">🎵</span>
+                                <p class="mt-2 text-sm">Drag & drop file audio di sini atau klik untuk pilih</p>
+                                <p class="text-xs text-gray-400 mt-1">Tanpa batasan ukuran file</p>
+                            </div>
+                            <input type="file" id="audio_file" name="audio_file" class="hidden" accept="audio/*" required>
+                        </div>
+                        <div id="audio-file-info" class="file-info hidden">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-semibold text-white" id="audio-filename"></div>
+                                    <div class="text-sm text-gray-400" id="audio-filesize"></div>
+                                </div>
+                                <button type="button" id="remove-audio" class="text-red-400 hover:text-red-300">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+
+            <!-- Bagian 2: Pengaturan Gaya & AI -->
+            <fieldset class="card p-6 rounded-lg">
+                <legend class="text-xl font-semibold text-white px-2">2. Pengaturan Gaya & AI (Queue System)</legend>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <label for="prompt_template" class="block mb-2 text-sm font-medium">Template Prompt Gambar</label>
+                        <div class="flex items-center gap-2">
+                            <select id="prompt_template" name="prompt_template" class="form-select w-full rounded-lg" required></select>
+                            <button type="button" id="add-prompt-btn" class="btn btn-secondary">+</button>
+                            <button type="button" id="edit-prompt-btn" class="btn btn-secondary">✎</button>
+                            <button type="button" id="delete-prompt-btn" class="btn btn-danger">🗑</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="image_model" class="block mb-2 text-sm font-medium">Model Gambar</label>
+                        <select id="image_model" name="image_model" class="form-select w-full rounded-lg">
+                            <option value="flux">Flux</option>
+                            <option value="midjourney">Midjourney</option>
+                            <option value="turbo">Turbo</option>
+                            <option value="flux-pro">Flux-pro</option>
+                            <option value="flux-realism">Flux-realism</option>
+                            <option value="flux-anime">Flux-anime</option>
+                            <option value="flux-3d">Flux-3d</option>
+                            <option value="flux-cablayai">Flux-cablayai</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="gemini_model" class="block mb-2 text-sm font-medium">Model Gemini (Narasi)</label>
+                        <select id="gemini_model" name="gemini_model" class="form-select w-full rounded-lg">
+                            <option value="gemini-2.0-flash-exp">Latest: gemini-2.0-flash-exp</option>
+                            <option value="gemini-2.0-flash">Stable: gemini-2.0-flash</option>
+                            <option value="gemini-2.0-flash-001">Production: gemini-2.0-flash-001</option>
+                            <option value="gemini-1.5-flash-latest">Legacy: gemini-1.5-flash-latest</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center space-x-4 pt-6">
+                        <input id="processing_mode" name="processing_mode" type="checkbox" class="form-checkbox h-5 w-5 rounded text-indigo-600 focus:ring-indigo-500">
+                        <div>
+                            <label for="processing_mode" class="font-medium text-white">Enhanced Processing (Per Kalimat)</label>
+                            <p class="text-xs text-gray-400">Queue: 1 kalimat = 1 prompt = 1 gambar</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4" id="images_per_paragraph_container">
+                    <label for="images_per_paragraph" class="block mb-2 text-sm font-medium">Gambar per Paragraf: <span id="images_per_paragraph_value">3</span></label>
+                    <input id="images_per_paragraph" name="images_per_paragraph" type="range" min="1" max="10" value="3" class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-600">
+                    <p class="text-xs text-gray-400 mt-1">Queue: 1 paragraf = N prompt = N gambar (bertahap)</p>
+                </div>
+                
+                <!-- Image Generation Delay Setting -->
+                <div class="mt-4">
+                    <label for="image_generation_delay" class="block mb-2 text-sm font-medium">Delay Generate Gambar: <span id="image_generation_delay_value">6</span> detik</label>
+                    <input id="image_generation_delay" name="image_generation_delay" type="range" min="1" max="15" value="6" class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-600">
+                    <p class="text-xs text-gray-400 mt-1">Jeda antar request dalam queue system (+ 2 detik antar prompt)</p>
+                </div>
+            </fieldset>
+
+            <!-- Bagian 3: Efek Visual MoviePy -->
+            <fieldset class="card p-6 rounded-lg">
+                <legend class="text-xl font-semibold text-white px-2">3. Efek Visual MoviePy 🎬</legend>
+                <div class="flex items-center space-x-3 mt-4">
+                    <input id="effects_enabled" name="effects_enabled" type="checkbox" class="form-checkbox h-5 w-5 rounded text-indigo-600 focus:ring-indigo-500" checked>
+                    <label for="effects_enabled" class="font-medium text-white">Aktifkan Auto Editing dengan MoviePy</label>
+                </div>
+                <div id="effects_controls" class="mt-4 space-y-4">
+                    <p class="text-sm text-gray-400">MoviePy akan otomatis menerapkan efek visual profesional:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-700 p-4 rounded-lg">
+                            <h4 class="font-semibold text-white mb-2">🔍 Zoom Effects</h4>
+                            <div><label for="zoom_in_prob" class="block text-sm font-medium">Zoom In (<span id="zoom_in_prob_value">25</span>%)</label><input id="zoom_in_prob" name="zoom_in_prob" type="range" min="0" max="100" value="25" class="w-full probability-slider"></div>
+                            <div class="mt-2"><label for="zoom_out_prob" class="block text-sm font-medium">Zoom Out (<span id="zoom_out_prob_value">25</span>%)</label><input id="zoom_out_prob" name="zoom_out_prob" type="range" min="0" max="100" value="25" class="w-full probability-slider"></div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg">
+                            <h4 class="font-semibold text-white mb-2">✨ Transitions</h4>
+                            <div><label for="fade_transition_prob" class="block text-sm font-medium">Fade Transition (<span id="fade_transition_prob_value">25</span>%)</label><input id="fade_transition_prob" name="fade_transition_prob" type="range" min="0" max="100" value="25" class="w-full probability-slider"></div>
+                            <div class="mt-2"><label for="still_prob" class="block text-sm font-medium">Still Image (<span id="still_prob_value">25</span>%)</label><input id="still_prob" name="still_prob" type="range" min="0" max="100" value="25" class="w-full probability-slider"></div>
+                        </div>
+                    </div>
+                    <div class="font-bold text-white text-center">Total: <span id="total_prob">100</span>%</div>
+                    <div class="text-xs text-gray-400 text-center">
+                        MoviePy akan otomatis menerapkan crossfade, resize, dan crop untuk hasil profesional
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset class="card p-6 rounded-lg">
+                <legend class="text-xl font-semibold text-white px-2">4. Rendering Options</legend>
+                <div class="flex items-center space-x-3 mt-4">
+                    <input id="gpu_enabled" name="gpu_enabled" type="checkbox" class="form-checkbox h-5 w-5 rounded text-indigo-600 focus:ring-indigo-500" checked>
+                    <label for="gpu_enabled" class="font-medium text-white">Coba GPU Acceleration (Fallback ke CPU jika gagal)</label>
+                </div>
+                <div class="mt-4">
+                    <label for="video_quality" class="block mb-2 text-sm font-medium">Kualitas Video</label>
+                    <select id="video_quality" name="video_quality" class="form-select w-full rounded-lg">
+                        <option value="fast">Fast (CRF 28 - File kecil)</option>
+                        <option value="medium" selected>Medium (CRF 23 - Balanced)</option>
+                        <option value="high">High (CRF 18 - File besar)</option>
+                    </select>
+                </div>
+            </fieldset>
+
+            <!-- Tombol Submit dan Status -->
+            <div class="text-center"><button type="submit" id="submit-btn" class="btn btn-primary text-lg py-3 px-8">🎯 Buat Video dengan Queue System + MoviePy</button></div>
+        </form>
+
+        <!-- Area Status dan Hasil -->
+        <div id="status-area" class="mt-8 text-center hidden">
+            <div class="flex justify-center items-center mb-4">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-500 h-12 w-12"></div>
+            </div>
+            <p id="status-message" class="text-lg text-white">Memproses dengan Queue System...</p>
+            <div class="mt-4 text-sm text-gray-400">
+                <p>🎯 Queue System: Generate prompt → Download gambar → Lanjut...</p>
+                <p>🎬 MoviePy sedang melakukan auto editing...</p>
+                <p>⏱️ Proses ini mungkin memakan waktu beberapa menit</p>
+            </div>
+        </div>
+        <div id="result-area" class="mt-8 text-center hidden">
+            <h2 class="text-2xl font-bold text-white mb-4">🎉 Video Berhasil Dibuat dengan Queue System + MoviePy!</h2>
+            <video id="result-video" class="w-full max-w-2xl mx-auto rounded-lg" controls></video>
+            <div class="mt-4 flex justify-center gap-4">
+                <a id="download-link" href="#" class="btn btn-success">⬇️ Unduh Video</a>
+                <a href="/file-manager" class="btn btn-info">📁 Kelola File</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Element Selectors ---
+        const form = document.getElementById('video-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusArea = document.getElementById('status-area');
+        const statusMessage = document.getElementById('status-message');
+        const resultArea = document.getElementById('result-area');
+        const resultVideo = document.getElementById('result-video');
+        const downloadLink = document.getElementById('download-link');
+        const promptSelect = document.getElementById('prompt_template');
+        const savedIndicator = document.getElementById('saved-indicator');
+        const geminiStatus = document.getElementById('gemini-status');
+        const testGeminiBtn = document.getElementById('test-gemini-btn');
+
+        // --- API Key Modal Elements ---
+        const setupApiBtn = document.getElementById('setup-api-btn');
+        const apiKeyModal = document.getElementById('api-key-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+        const cancelApiKeyBtn = document.getElementById('cancel-api-key-btn');
+        const apiKeyResult = document.getElementById('api-key-result');
+
+        // --- CRUD Buttons ---
+        const addPromptBtn = document.getElementById('add-prompt-btn');
+        const editPromptBtn = document.getElementById('edit-prompt-btn');
+        const deletePromptBtn = document.getElementById('delete-prompt-btn');
+
+        // --- Settings Buttons ---
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
+        const loadSettingsBtn = document.getElementById('load-settings-btn');
+        const resetSettingsBtn = document.getElementById('reset-settings-btn');
+
+        // --- Drag & Drop Elements ---
+        const narrationDropArea = document.getElementById('narration-drop-area');
+        const narrationFileInput = document.getElementById('narration_file');
+        const narrationFileInfo = document.getElementById('narration-file-info');
+        const narrationFilename = document.getElementById('narration-filename');
+        const narrationFilesize = document.getElementById('narration-filesize');
+        const removeNarrationBtn = document.getElementById('remove-narration');
+
+        const audioDropArea = document.getElementById('audio-drop-area');
+        const audioFileInput = document.getElementById('audio_file');
+        const audioFileInfo = document.getElementById('audio-file-info');
+        const audioFilename = document.getElementById('audio-filename');
+        const audioFilesize = document.getElementById('audio-filesize');
+        const removeAudioBtn = document.getElementById('remove-audio');
+
+        let promptsCache = [];
+
+        // --- API Key Functions ---
+        function showApiKeyModal() {
+            apiKeyModal.classList.add('show');
+            apiKeyInput.focus();
+        }
+
+        function hideApiKeyModal() {
+            apiKeyModal.classList.remove('show');
+            apiKeyInput.value = '';
+            apiKeyResult.classList.add('hidden');
+        }
+
+        async function saveApiKey() {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                showApiKeyResult('API key tidak boleh kosong!', 'error');
+                return;
+            }
+
+            try {
+                saveApiKeyBtn.disabled = true;
+                saveApiKeyBtn.textContent = '💾 Menyimpan...';
+
+                const response = await fetch('/save-api-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: apiKey })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showApiKeyResult(`✅ ${data.message}`, 'success');
+                    
+                    if (data.test_success) {
+                        showApiKeyResult(`✅ ${data.message}<br>🧪 Test berhasil: ${data.test_message}`, 'success');
+                        geminiStatus.textContent = '✅ Gemini API Connected';
+                        geminiStatus.className = 'gemini-status';
+                        
+                        setTimeout(() => {
+                            hideApiKeyModal();
+                        }, 2000);
+                    } else {
+                        showApiKeyResult(`⚠️ ${data.message}<br>❌ Test gagal: ${data.test_message}`, 'warning');
+                    }
+                } else {
+                    showApiKeyResult(`❌ ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showApiKeyResult(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                saveApiKeyBtn.disabled = false;
+                saveApiKeyBtn.textContent = '💾 Simpan & Test';
+            }
+        }
+
+        function showApiKeyResult(message, type) {
+            const bgColor = type === 'success' ? 'bg-green-600' : 
+                           type === 'error' ? 'bg-red-600' : 'bg-yellow-600';
+            
+            apiKeyResult.innerHTML = `
+                <div class="${bgColor} text-white p-3 rounded-lg">
+                    ${message}
+                </div>
+            `;
+            apiKeyResult.classList.remove('hidden');
+        }
+
+        // --- Gemini API Functions ---
+        async function testGeminiAPI() {
+            try {
+                geminiStatus.textContent = '🔄 Testing Gemini API...';
+                geminiStatus.className = 'gemini-status';
+                
+                const response = await fetch('/test-gemini');
+                const data = await response.json();
+                
+                if (data.success) {
+                    geminiStatus.textContent = '✅ Gemini API Connected';
+                    geminiStatus.className = 'gemini-status';
+                } else {
+                    geminiStatus.textContent = '❌ Gemini API Error';
+                    geminiStatus.className = 'gemini-status error';
+                    console.error('Gemini API Error:', data.message);
+                }
+            } catch (error) {
+                geminiStatus.textContent = '❌ Connection Failed';
+                geminiStatus.className = 'gemini-status error';
+                console.error('Test Gemini Error:', error);
+            }
+        }
+
+        // --- Event Listeners for API Key Modal ---
+        setupApiBtn.addEventListener('click', showApiKeyModal);
+        closeModalBtn.addEventListener('click', hideApiKeyModal);
+        cancelApiKeyBtn.addEventListener('click', hideApiKeyModal);
+        saveApiKeyBtn.addEventListener('click', saveApiKey);
+        testGeminiBtn.addEventListener('click', testGeminiAPI);
+
+        // Close modal when clicking outside
+        apiKeyModal.addEventListener('click', function(e) {
+            if (e.target === apiKeyModal) {
+                hideApiKeyModal();
+            }
+        });
+
+        // Enter key to save API key
+        apiKeyInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                saveApiKey();
+            }
+        });
+
+        // --- Drag & Drop Functions ---
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function setupDragDrop(dropArea, fileInput, fileInfo, filename, filesize, removeBtn, acceptedTypes) {
+            // Click to select file
+            dropArea.addEventListener('click', () => fileInput.click());
+
+            // Drag events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.add('drag-over'), false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.remove('drag-over'), false);
+            });
+
+            dropArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }
+
+            function handleFiles(files) {
+                if (files.length > 0) {
+                    const file = files[0];
+                    
+                    // Check file type
+                    const isValidType = acceptedTypes.some(type => {
+                        if (type.startsWith('.')) {
+                            return file.name.toLowerCase().endsWith(type);
+                        } else {
+                            return file.type.startsWith(type);
+                        }
+                    });
+
+                    if (!isValidType) {
+                        alert(`File type tidak didukung. Hanya menerima: ${acceptedTypes.join(', ')}`);
+                        return;
+                    }
+
+                    // Set file to input
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    fileInput.files = dataTransfer.files;
+
+                    // Show file info
+                    filename.textContent = file.name;
+                    filesize.textContent = formatFileSize(file.size);
+                    fileInfo.classList.remove('hidden');
+                    dropArea.style.display = 'none';
+                }
+            }
+
+            // File input change
+            fileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    const file = this.files[0];
+                    filename.textContent = file.name;
+                    filesize.textContent = formatFileSize(file.size);
+                    fileInfo.classList.remove('hidden');
+                    dropArea.style.display = 'none';
+                }
+            });
+
+            // Remove file
+            removeBtn.addEventListener('click', function() {
+                fileInput.value = '';
+                fileInfo.classList.add('hidden');
+                dropArea.style.display = 'block';
+            });
+        }
+
+        // Setup drag & drop for both file inputs
+        setupDragDrop(narrationDropArea, narrationFileInput, narrationFileInfo, narrationFilename, narrationFilesize, removeNarrationBtn, ['.txt']);
+        setupDragDrop(audioDropArea, audioFileInput, audioFileInfo, audioFilename, audioFilesize, removeAudioBtn, ['audio/']);
+
+        // --- Local Storage Functions ---
+        const STORAGE_KEY = 'video_generator_settings';
+        
+        function showSavedIndicator() {
+            savedIndicator.classList.add('show');
+            setTimeout(() => {
+                savedIndicator.classList.remove('show');
+            }, 2000);
+        }
+
+        function saveSettingsToLocal() {
+            const settings = {
+                prompt_template: document.getElementById('prompt_template').value,
+                image_model: document.getElementById('image_model').value,
+                gemini_model: document.getElementById('gemini_model').value,
+                processing_mode: document.getElementById('processing_mode').checked,
+                images_per_paragraph: document.getElementById('images_per_paragraph').value,
+                image_generation_delay: document.getElementById('image_generation_delay').value,
+                effects_enabled: document.getElementById('effects_enabled').checked,
+                zoom_in_prob: document.getElementById('zoom_in_prob').value,
+                zoom_out_prob: document.getElementById('zoom_out_prob').value,
+                still_prob: document.getElementById('still_prob').value,
+                fade_transition_prob: document.getElementById('fade_transition_prob').value,
+                gpu_enabled: document.getElementById('gpu_enabled').checked,
+                video_quality: document.getElementById('video_quality').value
+            };
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+            showSavedIndicator();
+        }
+
+        function loadSettingsFromLocal() {
+            const savedSettings = localStorage.getItem(STORAGE_KEY);
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                
+                // Load all settings
+                if (settings.prompt_template) document.getElementById('prompt_template').value = settings.prompt_template;
+                if (settings.image_model) document.getElementById('image_model').value = settings.image_model;
+                if (settings.gemini_model) document.getElementById('gemini_model').value = settings.gemini_model;
+                document.getElementById('processing_mode').checked = settings.processing_mode || false;
+                if (settings.images_per_paragraph) document.getElementById('images_per_paragraph').value = settings.images_per_paragraph;
+                if (settings.image_generation_delay) document.getElementById('image_generation_delay').value = settings.image_generation_delay;
+                document.getElementById('effects_enabled').checked = settings.effects_enabled !== false;
+                if (settings.zoom_in_prob) document.getElementById('zoom_in_prob').value = settings.zoom_in_prob;
+                if (settings.zoom_out_prob) document.getElementById('zoom_out_prob').value = settings.zoom_out_prob;
+                if (settings.still_prob) document.getElementById('still_prob').value = settings.still_prob;
+                if (settings.fade_transition_prob) document.getElementById('fade_transition_prob').value = settings.fade_transition_prob;
+                document.getElementById('gpu_enabled').checked = settings.gpu_enabled !== false;
+                if (settings.video_quality) document.getElementById('video_quality').value = settings.video_quality;
+                
+                // Update UI
+                updateImagesPerParagraphDisplay();
+                updateImageDelayDisplay();
+                updateProcessingModeDisplay();
+                updateEffectsDisplay();
+                updateProbabilities();
+                updateCrudButtonsState();
+                
+                showSavedIndicator();
+            }
+        }
+
+        function resetSettingsToDefault() {
+            if (confirm('Apakah Anda yakin ingin mereset semua pengaturan ke default?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                
+                // Reset to defaults
+                document.getElementById('image_model').value = 'flux';
+                document.getElementById('gemini_model').value = 'gemini-2.0-flash-exp';
+                document.getElementById('processing_mode').checked = false;
+                document.getElementById('images_per_paragraph').value = 3;
+                document.getElementById('image_generation_delay').value = 6;
+                document.getElementById('effects_enabled').checked = true;
+                document.getElementById('zoom_in_prob').value = 25;
+                document.getElementById('zoom_out_prob').value = 25;
+                document.getElementById('still_prob').value = 25;
+                document.getElementById('fade_transition_prob').value = 25;
+                document.getElementById('gpu_enabled').checked = true;
+                document.getElementById('video_quality').value = 'medium';
+                
+                // Update UI
+                updateImagesPerParagraphDisplay();
+                updateImageDelayDisplay();
+                updateProcessingModeDisplay();
+                updateEffectsDisplay();
+                updateProbabilities();
+                
+                alert('Pengaturan telah direset ke default.');
+            }
+        }
+
+        // Auto-save on change
+        function setupAutoSave() {
+            const formElements = form.querySelectorAll('select, input[type="checkbox"], input[type="range"]');
+            formElements.forEach(element => {
+                if (element.type === 'file') return; // Skip file inputs
+                
+                element.addEventListener('change', () => {
+                    setTimeout(saveSettingsToLocal, 500); // Delay to avoid too frequent saves
+                });
+                
+                if (element.type === 'range') {
+                    element.addEventListener('input', () => {
+                        setTimeout(saveSettingsToLocal, 1000); // Longer delay for range inputs
+                    });
+                }
+            });
+        }
+
+        // --- Settings Event Listeners ---
+        saveSettingsBtn.addEventListener('click', saveSettingsToLocal);
+        loadSettingsBtn.addEventListener('click', loadSettingsFromLocal);
+        resetSettingsBtn.addEventListener('click', resetSettingsToDefault);
+
+        // --- CRUD Functions ---
+        async function loadPrompts() {
+            try {
+                const response = await fetch('/prompts');
+                promptsCache = await response.json();
+                promptSelect.innerHTML = '';
+                promptsCache.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = p.name;
+                    option.dataset.isDeletable = p.is_deletable;
+                    promptSelect.appendChild(option);
+                });
+                updateCrudButtonsState();
+                
+                // Load saved prompt selection if available
+                const savedSettings = localStorage.getItem(STORAGE_KEY);
+                if (savedSettings) {
+                    const settings = JSON.parse(savedSettings);
+                    if (settings.prompt_template) {
+                        document.getElementById('prompt_template').value = settings.prompt_template;
+                        updateCrudButtonsState();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load prompts:', error);
+                alert('Gagal memuat template prompt.');
+            }
+        }
+
+        function updateCrudButtonsState() {
+            const selectedOption = promptSelect.options[promptSelect.selectedIndex];
+            const isDeletable = selectedOption && selectedOption.dataset.isDeletable === 'true';
+            editPromptBtn.disabled = !isDeletable;
+            deletePromptBtn.disabled = !isDeletable;
+        }
+        
+        promptSelect.addEventListener('change', updateCrudButtonsState);
+
+        addPromptBtn.addEventListener('click', async () => {
+            const name = prompt("Masukkan nama template baru:");
+            if (!name) return;
+            const promptText = prompt("Masukkan teks prompt untuk template '" + name + "':");
+            if (!promptText) return;
+
+            await fetch('/prompts/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, prompt: promptText })
+            });
+            loadPrompts();
+        });
+
+        editPromptBtn.addEventListener('click', async () => {
+            const selectedId = promptSelect.value;
+            const selectedPrompt = promptsCache.find(p => p.id === selectedId);
+            if (!selectedPrompt || !selectedPrompt.is_deletable) {
+                alert('Prompt default tidak bisa diubah.');
+                return;
+            }
+
+            const newName = prompt("Edit nama template:", selectedPrompt.name);
+            if (!newName) return;
+            const newPromptText = prompt("Edit teks prompt:", selectedPrompt.prompt);
+            if (!newPromptText) return;
+
+            await fetch(`/prompts/update/${selectedId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName, prompt: newPromptText })
+            });
+            loadPrompts();
+        });
+
+        deletePromptBtn.addEventListener('click', async () => {
+            const selectedId = promptSelect.value;
+            const selectedPrompt = promptsCache.find(p => p.id === selectedId);
+            if (!selectedPrompt || !selectedPrompt.is_deletable) {
+                alert('Prompt default tidak bisa dihapus.');
+                return;
+            }
+
+            if (confirm(`Anda yakin ingin menghapus template "${selectedPrompt.name}"?`)) {
+                await fetch(`/prompts/delete/${selectedId}`, { method: 'POST' });
+                loadPrompts();
+            }
+        });
+
+        // --- UI Update Functions ---
+        function updateImagesPerParagraphDisplay() {
+            const value = document.getElementById('images_per_paragraph').value;
+            document.getElementById('images_per_paragraph_value').textContent = value;
+        }
+
+        function updateImageDelayDisplay() {
+            const value = document.getElementById('image_generation_delay').value;
+            document.getElementById('image_generation_delay_value').textContent = value;
+        }
+
+        function updateProcessingModeDisplay() {
+            const processingModeCheckbox = document.getElementById('processing_mode');
+            const imagesPerParagraphContainer = document.getElementById('images_per_paragraph_container');
+            imagesPerParagraphContainer.style.display = processingModeCheckbox.checked ? 'none' : 'block';
+        }
+
+        function updateEffectsDisplay() {
+            const effectsEnabledCheckbox = document.getElementById('effects_enabled');
+            const effectsControls = document.getElementById('effects_controls');
+            effectsControls.style.display = effectsEnabledCheckbox.checked ? 'block' : 'none';
+        }
+
+        function updateProbabilities() {
+            const probSliders = document.querySelectorAll('.probability-slider');
+            const totalProbEl = document.getElementById('total_prob');
+            
+            let total = Array.from(probSliders).reduce((sum, s) => sum + parseInt(s.value, 10), 0);
+            totalProbEl.textContent = total;
+            totalProbEl.style.color = total === 100 ? '#10b981' : '#ef4444';
+            
+            // Update individual value displays
+            document.getElementById('zoom_in_prob_value').textContent = document.getElementById('zoom_in_prob').value;
+            document.getElementById('zoom_out_prob_value').textContent = document.getElementById('zoom_out_prob').value;
+            document.getElementById('still_prob_value').textContent = document.getElementById('still_prob').value;
+            document.getElementById('fade_transition_prob_value').textContent = document.getElementById('fade_transition_prob').value;
+        }
+
+        // --- Main Form and UI Logic ---
+        const processingModeCheckbox = document.getElementById('processing_mode');
+        const imagesPerParagraphContainer = document.getElementById('images_per_paragraph_container');
+        processingModeCheckbox.addEventListener('change', updateProcessingModeDisplay);
+        
+        const imagesPerParagraphSlider = document.getElementById('images_per_paragraph');
+        imagesPerParagraphSlider.addEventListener('input', updateImagesPerParagraphDisplay);
+        
+        const imageDelaySlider = document.getElementById('image_generation_delay');
+        imageDelaySlider.addEventListener('input', updateImageDelayDisplay);
+        
+        const effectsEnabledCheckbox = document.getElementById('effects_enabled');
+        effectsEnabledCheckbox.addEventListener('change', updateEffectsDisplay);
+        
+        const probSliders = document.querySelectorAll('.probability-slider');
+        probSliders.forEach(s => s.addEventListener('input', updateProbabilities));
+
+        // --- Form Submission ---
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Validation
+            if (effectsEnabledCheckbox.checked) {
+                let total = Array.from(probSliders).reduce((sum, s) => sum + parseInt(s.value, 10), 0);
+                if (total !== 100) {
+                    alert('Total probabilitas efek harus 100%!');
+                    return;
+                }
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Memproses dengan Queue System...';
+            statusArea.classList.remove('hidden');
+            resultArea.classList.add('hidden');
+            statusMessage.textContent = 'Mengunggah file dan memulai Queue System...';
+
+            const formData = new FormData(form);
+
+            try {
+                statusMessage.textContent = 'Queue System: Generate prompt → Download gambar → MoviePy rendering...';
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    statusMessage.textContent = 'Video berhasil dibuat dengan Queue System + MoviePy!';
+                    statusArea.classList.add('hidden');
+                    resultArea.classList.remove('hidden');
+                    resultVideo.src = result.video_url;
+                    downloadLink.href = result.video_url;
+                    
+                    // Update Gemini status if available
+                    if (result.gemini_status) {
+                        geminiStatus.textContent = `🤖 ${result.gemini_status}`;
+                    }
+                } else {
+                    throw new Error(result.error || 'Terjadi kesalahan yang tidak diketahui.');
+                }
+            } catch (error) {
+                statusMessage.textContent = `Error: ${error.message}`;
+                alert(`Terjadi kesalahan: ${error.message}`);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🎯 Buat Video dengan Queue System + MoviePy';
+            }
+        });
+
+        // --- Initialization ---
+        async function initialize() {
+            await loadPrompts();
+            updateImagesPerParagraphDisplay();
+            updateImageDelayDisplay();
+            updateProcessingModeDisplay();
+            updateEffectsDisplay();
+            updateProbabilities();
+            setupAutoSave();
+            
+            // Test Gemini API on load
+            testGeminiAPI();
+            
+            // Load saved settings after everything is set up
+            setTimeout(loadSettingsFromLocal, 100);
+        }
+
+        initialize();
+    });
+    </script>
+</body>
+</html>

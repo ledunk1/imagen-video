@@ -1,0 +1,20 @@
+[
+  {
+    "id": "default-cinematic-1",
+    "name": "Default: Cinematic Shot",
+    "prompt": "cinematic shot, dramatic lighting, high detail, 8k, photorealistic",
+    "is_deletable": false
+  },
+  {
+    "id": "default-anime-2",
+    "name": "Default: Anime Style",
+    "prompt": "anime style, vibrant colors, detailed background, key visual, by makoto shinkai",
+    "is_deletable": false
+  },
+  {
+    "id": "default-fantasy-3",
+    "name": "Default: Digital Painting (Fantasy)",
+    "prompt": "epic fantasy digital painting, beautiful landscape, detailed, trending on artstation, by greg rutkowski",
+    "is_deletable": false
+  }
+]
